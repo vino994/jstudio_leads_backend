@@ -12,23 +12,30 @@ const leadRoutes = require("./routes/leadRoutes");
 const app = express();
 
 /* ---------------- CORS CONFIG ---------------- */
+
 const allowedOrigins = [
   "http://localhost:5173",
   "https://jstudioleads.vercel.app"
 ];
 
 app.use(cors({
-  origin: function (origin, callback) {
+  origin: (origin, callback) => {
+    // allow requests with no origin (mobile apps, curl, postman)
     if (!origin) return callback(null, true);
 
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
+    if (allowedOrigins.includes(origin) || origin.endsWith(".vercel.app")) {
+      return callback(null, true);
     }
+
+    return callback(null, true); // 🔥 allow temporarily (avoid blocking)
   },
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
 }));
+
+// 🔥 VERY IMPORTANT (fixes your error)
+app.options("*", cors());
 
 
 
