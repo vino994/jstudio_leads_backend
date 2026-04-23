@@ -14,7 +14,7 @@ const app = express();
 /* ---------------- CORS CONFIG ---------------- */
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://jleeds.vercel.app"
+  "https://jstudioleads.vercel.app/"
 ];
 
 app.use(cors({
