@@ -2,14 +2,12 @@ const LeadRequest = require("../models/LeadRequest");
 const { generateLeads } = require("../services/leadService");
 const XLSX = require("xlsx");
 
-
-const User = require("../models/User");
-
-
+/* ================= CREATE LEADS ================= */
 exports.createLeads = async (req, res) => {
   try {
     const { location, businessType, count } = req.body;
 
+    // Basic validation
     if (!location || !businessType || !count) {
       return res.status(400).json({ message: "All fields required" });
     }
@@ -18,40 +16,7 @@ exports.createLeads = async (req, res) => {
       return res.status(400).json({ message: "Maximum 50 leads allowed per request" });
     }
 
-    const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // 🔥 MONTHLY RESET LOGIC
-    const now = new Date();
-    const resetDate = new Date(user.monthlyResetDate);
-
-    if (
-      now.getMonth() !== resetDate.getMonth() ||
-      now.getFullYear() !== resetDate.getFullYear()
-    ) {
-      user.monthlyLeadsUsed = 0;
-      user.monthlyResetDate = now;
-      await user.save();
-    }
-
-    // 🔥 PLAN LIMITS
-    const planLimits = {
-      free: 20,
-      pro: 200,
-      premium: 1000
-    };
-
-    const limit = planLimits[user.plan];
-
-    if (user.monthlyLeadsUsed + count > limit) {
-      return res.status(403).json({
-        message: `Monthly limit exceeded. Your ${user.plan} plan allows ${limit} leads per month.`
-      });
-    }
-
-    // 🔥 Generate leads
+    // 🔥 Generate leads (your service)
     const rawLeads = await generateLeads(location, businessType, count);
 
     const formattedLeads = rawLeads.map((lead) => ({
@@ -60,40 +25,37 @@ exports.createLeads = async (req, res) => {
       Address: lead.address || ""
     }));
 
+    // 🔥 Save without user
     const saved = await LeadRequest.create({
-      userId: user._id,
       location,
       businessType,
       count,
       leads: formattedLeads
     });
 
-    // 🔥 Update usage
-    user.monthlyLeadsUsed += formattedLeads.length;
-    await user.save();
-
+    // ✅ Send clean response
     res.json({
       requestId: saved._id,
       totalLeads: formattedLeads.length,
-      monthlyUsed: user.monthlyLeadsUsed,
-      monthlyLimit: limit,
+      monthlyUsed: 0,       // dummy
+      monthlyLimit: 999999, // unlimited
       leads: formattedLeads
     });
 
   } catch (error) {
+    console.error("CREATE LEADS ERROR:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
 
+/* ================= DOWNLOAD EXCEL ================= */
 exports.downloadExcel = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const request = await LeadRequest.findOne({
-      _id: id,
-      userId: req.user.id
-    }).lean();   // 👈 VERY IMPORTANT
+    // 🔥 Removed userId filter
+    const request = await LeadRequest.findById(id).lean();
 
     if (!request) {
       return res.status(404).json({ message: "Request not found" });
@@ -131,6 +93,7 @@ exports.downloadExcel = async (req, res) => {
     res.send(buffer);
 
   } catch (error) {
+    console.error("DOWNLOAD ERROR:", error);
     res.status(500).json({ message: error.message });
   }
 };

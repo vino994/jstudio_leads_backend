@@ -1,8 +1,8 @@
 const router = require("express").Router();
-const auth = require("../middleware/authMiddleware");
 const { createLeads, downloadExcel } = require("../controllers/leadController");
 
-router.post("/generate", auth, createLeads);
-router.get("/download/excel/:id", auth, downloadExcel);
+// ✅ No auth
+router.post("/generate", createLeads);
+router.get("/download/excel/:id", downloadExcel);
 
 module.exports = router;
